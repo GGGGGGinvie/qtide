@@ -1,8 +1,8 @@
 <template>
     <div class="app">
         <div class="header">
-            <h1>Qtide Settings</h1>
-            <span class="badge">Feature under development</span>
+            <h1>Qtide 设置</h1>
+            <span class="badge">功能开发中</span>
         </div>
         <div class="body">
             <div class="sidebar">
@@ -16,8 +16,8 @@
             </div>
             <div class="content">
                 <div v-if="groups.length === 0" class="placeholder">
-                    <h2>Waiting for configuration...</h2>
-                    <p>Feature under development / 功能待开发</p>
+                    <h2>等待配置...</h2>
+                    <p>功能开发中</p>
                 </div>
                 <div v-for="g in groups" :key="g.id" v-show="activeTab === g.id" class="tab-pane">
                     <h2>{{ g.label }}</h2>
@@ -57,8 +57,8 @@
             </div>
         </div>
         <div class="footer">
-            <button class="btn btn-secondary" @click="onReset">Reset</button>
-            <button class="btn btn-primary" @click="onSave">Save</button>
+            <button class="btn btn-secondary" @click="onReset">重置</button>
+            <button class="btn btn-primary" @click="onSave">保存</button>
         </div>
     </div>
 </template>

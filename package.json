@@ -2,19 +2,12 @@
     "name": "qtide",
     "displayName": "Qt IDE",
     "description": "Qt 项目辅助插件，支持 qmake (.pro) 和 CMake (CMakeLists.txt) 项目解析与文件树浏览",
-    "version": "0.0.6",
-    "publisher": "origin0713",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/origin0713/qtide"
-    },
+    "version": "0.0.7",
+    "publisher": "Ginvie",    
     "icon": "res/icon/qtide.png",
     "engines": {
         "vscode": "^1.116.0"
     },
-    "categories": [
-        "Extension Packs"
-    ],
     "activationEvents": [
         "onStartupFinished"
     ],
@@ -33,11 +26,11 @@
             "qtide_view": [
                 {
                     "id": "qtide.view.project",
-                    "name": "QTIDE PROJECT"
+                    "name": "Qt 项目"
                 },
                 {
                     "id": "qtide.view.operations",
-                    "name": "Operations",
+                    "name": "操作",
                     "visibility": "collapsed"
                 }
             ]
@@ -45,50 +38,62 @@
         "commands": [
             {
                 "command": "qtide.openProject",
-                "title": "Open Project",
+                "title": "打开项目",
                 "category": "Qtide"
             },
             {
                 "command": "qtide.newProject",
-                "title": "New Project",
+                "title": "新建项目",
                 "category": "Qtide"
             },
             {
                 "command": "qtide.importProject",
-                "title": "Import Project",
+                "title": "导入项目",
                 "category": "Qtide"
             },
             {
                 "command": "qtide.refreshProject",
-                "title": "Refresh Project",
+                "title": "刷新项目",
                 "category": "Qtide",
-                "icon": {
-                    "dark": "$(refresh)",
-                    "light": "$(refresh)"
-                }
+                "icon": "$(refresh)"
+            },
+            {
+                "command": "qtide.collapseAll",
+                "title": "全部折叠",
+                "category": "Qtide"
+            },
+            {
+                "command": "qtide.expandAll",
+                "title": "全部展开",
+                "category": "Qtide"
+            },
+            {
+                "command": "qtide.toggleNode",
+                "title": "展开/折叠",
+                "category": "Qtide"
             },
             {
                 "command": "qtide.openTreeFile",
-                "title": "Open File",
+                "title": "打开文件",
                 "category": "Qtide"
             },
             {
                 "command": "qtide.revealInExplorer",
-                "title": "Reveal in File Explorer",
+                "title": "在资源管理器中显示",
                 "category": "Qtide"
             },
             {
                 "command": "qtide.copyPath",
-                "title": "Copy Path",
+                "title": "复制路径",
                 "category": "Qtide"
             },
             {
                 "command": "qtide.openSettings",
-                "title": "Open Qtide Settings",
+                "title": "Qtide 设置",
                 "category": "Qtide"
             },
             {
-                "title": "Remove Project",
+                "title": "移除项目",
                 "category": "Qtide",
                 "command": "qtide.removeProject"
             }
@@ -98,7 +103,7 @@
                 {
                     "command": "qtide.refreshProject",
                     "when": "view == qtide.view.project",
-                    "group": "navigation"
+                    "group": "navigation@3"
                 }
             ],
             "view/item/context": [
@@ -126,6 +131,21 @@
                     "when": "view == qtide.view.project && viewItem == project",
                     "command": "qtide.removeProject",
                     "group": "2_remove@1"
+                },
+                {
+                    "command": "qtide.toggleNode",
+                    "when": "view == qtide.view.project && viewItem =~ /^(project|.*Group)$/",
+                    "group": "3_expand@1"
+                },
+                {
+                    "command": "qtide.expandAll",
+                    "when": "view == qtide.view.project && viewItem =~ /^(project|.*Group)$/",
+                    "group": "3_expand@2"
+                },
+                {
+                    "command": "qtide.collapseAll",
+                    "when": "view == qtide.view.project && viewItem =~ /^(project|.*Group)$/",
+                    "group": "3_expand@3"
                 }
             ]
         },
@@ -137,7 +157,7 @@
         ]
     },
     "scripts": {
-        "vscode:prepublish": "pnpm run compile",
+        "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
         "pretest": "pnpm run compile && pnpm run lint",
@@ -156,9 +176,5 @@
     },
     "volta": {
         "node": "24.15.0"
-    },
-    "extensionPack": [
-        "origin0713.qtide",
-        "theqtcompany.qt-cpp-pack"
-    ]
+    }
 }

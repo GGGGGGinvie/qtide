@@ -18,6 +18,8 @@ export enum TreeItemType {
     RESOURCE_FILE,
     OTHER_FILES_GROUP,
     OTHER_FILE,
+    QRC_FILES_GROUP,
+    QRC_RESOURCE,
 }
 
 /**
@@ -47,6 +49,12 @@ export interface QtProjectData {
     resources: string[];
     /** 翻译文件列表（可选） */
     translations?: string[];
+    /** DISTFILES 分发文件列表（可选） */
+    distfiles?: string[];
+    /** include(.pri) 解析出的子项目（可选） */
+    subProjects?: QtProjectData[];
+    /** 标记是否为 .pri 子项目 */
+    isSubProject?: boolean;
 }
 
 /**
@@ -61,6 +69,8 @@ export class QtTreeItem extends vscode.TreeItem {
     filePath?: string;
     parentGroupType?: TreeItemType;
     dirPath?: string;
+    fileList?: string[];
+    nodeKey?: string;
 
     constructor(
         label: string,
@@ -110,7 +120,7 @@ export class QtTreeItem extends vscode.TreeItem {
             case TreeItemType.PROJECT:
                 this.setExpandableIcon(true);
                 this.contextValue = 'project';
-                this.tooltip = `Name: ${this.projectData.name}\nPath: ${this.projectData.projectFileDir}`;
+                this.tooltip = `名称：${this.projectData.name}\n路径：${this.projectData.projectFileDir}`;
                 break;
 
             case TreeItemType.PRO_FILE:
@@ -128,13 +138,13 @@ export class QtTreeItem extends vscode.TreeItem {
             case TreeItemType.HEADERS_GROUP:
                 this.setExpandableIcon(true);
                 this.contextValue = 'headersGroup';
-                this.tooltip = `Headers (${this.projectData.headers.length} files)\n${this.projectData.headers.map(f => '  • ' + path.basename(f)).join('\n')}`;
+                this.tooltip = `头文件（${this.projectData.headers.length} 个）\n${this.projectData.headers.map(f => '  • ' + path.basename(f)).join('\n')}`;
                 break;
 
             case TreeItemType.SOURCES_GROUP:
                 this.setExpandableIcon(true);
                 this.contextValue = 'sourcesGroup';
-                this.tooltip = `Sources (${this.projectData.sources.length} files)\n${this.projectData.sources.map(f => '  • ' + path.basename(f)).join('\n')}`;
+                this.tooltip = `源文件（${this.projectData.sources.length} 个）\n${this.projectData.sources.map(f => '  • ' + path.basename(f)).join('\n')}`;
                 break;
 
             case TreeItemType.FORMS_GROUP:
@@ -146,7 +156,7 @@ export class QtTreeItem extends vscode.TreeItem {
             case TreeItemType.RESOURCES_GROUP:
                 this.setExpandableIcon(true);
                 this.contextValue = 'resourcesGroup';
-                this.tooltip = `Resources (${this.projectData.resources.length} files)\n${this.projectData.resources.map(f => '  • ' + path.basename(f)).join('\n')}`;
+                this.tooltip = `资源文件（${this.projectData.resources.length} 个）\n${this.projectData.resources.map(f => '  • ' + path.basename(f)).join('\n')}`;
                 break;
 
             case TreeItemType.DIR_GROUP:
@@ -186,10 +196,23 @@ export class QtTreeItem extends vscode.TreeItem {
             case TreeItemType.OTHER_FILES_GROUP:
                 this.setExpandableIcon(true);
                 this.contextValue = 'otherFilesGroup';
-                this.tooltip = `Other files (${(this.projectData.translations || []).length} files)\n${(this.projectData.translations || []).map(f => '  • ' + path.basename(f)).join('\n')}`;
+                this.tooltip = `其他文件（${(this.projectData.translations || []).length} 个）\n${(this.projectData.translations || []).map(f => '  • ' + path.basename(f)).join('\n')}`;
+                break;
+
+            case TreeItemType.QRC_FILES_GROUP:
+                this.setExpandableIcon(false);
+                this.contextValue = 'qrcFilesGroup';
+                this.tooltip = this.dirPath || (typeof this.label === 'string' ? this.label : '');
                 break;
 
             case TreeItemType.OTHER_FILE:
+                this.iconPath = vscode.ThemeIcon.File;
+                this.resourceUri = vscode.Uri.file(this.getFullPath());
+                this.contextValue = 'qtFile';
+                this.setFileCommand();
+                break;
+
+            case TreeItemType.QRC_RESOURCE:
                 this.iconPath = vscode.ThemeIcon.File;
                 this.resourceUri = vscode.Uri.file(this.getFullPath());
                 this.contextValue = 'qtFile';
@@ -220,7 +243,8 @@ export class QtTreeItem extends vscode.TreeItem {
             type === TreeItemType.SOURCE_FILE ||
             type === TreeItemType.FORM_FILE ||
             type === TreeItemType.RESOURCE_FILE ||
-            type === TreeItemType.OTHER_FILE;
+            type === TreeItemType.OTHER_FILE ||
+            type === TreeItemType.QRC_RESOURCE;
     }
 
     /** Full path for file items (relative filePath + project dir); panics if filePath is undefined */

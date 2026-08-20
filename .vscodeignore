@@ -9,4 +9,11 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+webview/**/node_modules/**
+webview/**/src/**
+webview/**/*.ts
+webview/**/*.vue
+.codeartsdoer/**
+pnpm-lock.yaml
+qtide.code-workspace
 

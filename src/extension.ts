@@ -42,12 +42,12 @@ async function promptToOpenWorkspaceForProject(projectFilePath: string): Promise
 
     const workspaceName = path.basename(workspacePath);
     const selection = await vscode.window.showInformationMessage(
-        `Detected workspace file "${workspaceName}" for project "${baseName}". Do you want to open it?`,
-        'Open Workspace',
-        'Cancel'
+        `检测到项目 "${baseName}" 的工作区文件 "${workspaceName}"。是否打开？`,
+        '打开工作区',
+        '取消'
     );
 
-    if (selection === 'Open Workspace') {
+    if (selection === '打开工作区') {
         await vscode.commands.executeCommand(
             'vscode.openFolder',
             vscode.Uri.file(workspacePath)
@@ -56,7 +56,7 @@ async function promptToOpenWorkspaceForProject(projectFilePath: string): Promise
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Qtide extension is now active!');
+    console.log('Qtide 扩展已激活！');
 
     QtTreeItem.extensionUri = context.extensionUri;
 
@@ -89,6 +89,24 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('qtide.refreshProject', () => {
             void projectExplorer.refreshAllProjects();
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('qtide.collapseAll', (item?: QtTreeItem) => {
+            void projectExplorer.collapseAll(item);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('qtide.expandAll', (item?: QtTreeItem) => {
+            void projectExplorer.expandAll(item);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('qtide.toggleNode', (item?: QtTreeItem) => {
+            void projectExplorer.toggleNode(item);
         })
     );
 

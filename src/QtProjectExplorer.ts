@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { ProFileParser } from './ProFileParser';
 import { CmakeFileParser } from './CmakeFileParser';
 import { SimpleCmakeParser } from './SimpleCmakeParser';
+import { QrcFileParser } from './QrcFileParser';
 import { QtProjectData, QtTreeItem, TreeItemType } from './QtTypeDefine';
 import { QtideConfigManager } from './QtideConfig';
 
@@ -27,40 +28,40 @@ class OperationDataProvider implements vscode.TreeDataProvider<vscode.TreeItem> 
 
         const items: vscode.TreeItem[] = [];
 
-        const openItem = new vscode.TreeItem('Open Project', vscode.TreeItemCollapsibleState.None);
+        const openItem = new vscode.TreeItem('打开项目', vscode.TreeItemCollapsibleState.None);
         openItem.command = {
             command: 'qtide.openProject',
-            title: 'Open Project'
+            title: '打开项目'
         };
         openItem.iconPath = new vscode.ThemeIcon('folder-opened');
-        openItem.tooltip = 'Open a Qt workspace (.code-workspace)';
+        openItem.tooltip = '打开 Qt 工作区 (.code-workspace)';
         items.push(openItem);
 
-        const newItem = new vscode.TreeItem('New Project', vscode.TreeItemCollapsibleState.None);
+        const newItem = new vscode.TreeItem('新建项目', vscode.TreeItemCollapsibleState.None);
         newItem.command = {
             command: 'qtide.newProject',
-            title: 'New Project'
+            title: '新建项目'
         };
         newItem.iconPath = new vscode.ThemeIcon('new-file');
-        newItem.tooltip = 'Create a new Qt project';
+        newItem.tooltip = '创建新的 Qt 项目';
         items.push(newItem);
 
-        const importItem = new vscode.TreeItem('Import Project', vscode.TreeItemCollapsibleState.None);
+        const importItem = new vscode.TreeItem('导入项目', vscode.TreeItemCollapsibleState.None);
         importItem.command = {
             command: 'qtide.importProject',
-            title: 'Import Project'
+            title: '导入项目'
         };
         importItem.iconPath = new vscode.ThemeIcon('cloud-download');
-        importItem.tooltip = 'Import a Qt project (.pro or CMakeLists.txt)';
+        importItem.tooltip = '导入 Qt 项目 (.pro 或 CMakeLists.txt)';
         items.push(importItem);
 
-        const settingsItem = new vscode.TreeItem('Open Qtide Settings', vscode.TreeItemCollapsibleState.None);
+        const settingsItem = new vscode.TreeItem('Qtide 设置', vscode.TreeItemCollapsibleState.None);
         settingsItem.command = {
             command: 'qtide.openSettings',
-            title: 'Open Qtide Settings'
+            title: 'Qtide 设置'
         };
         settingsItem.iconPath = new vscode.ThemeIcon('gear');
-        settingsItem.tooltip = 'Open Qtide settings panel';
+        settingsItem.tooltip = '打开 Qtide 设置面板';
         items.push(settingsItem);
 
         return items;
@@ -85,6 +86,100 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
 
     clearDirExpandStates(): void {
         this.dirExpandStates.clear();
+    }
+
+    private defaultCollapsed = false;
+    private manualCollapsedKeys = new Set<string>();
+    private manualExpandedKeys = new Set<string>();
+
+    private makeNodeKey(projectFilePath: string, type: TreeItemType, extra?: string): string {
+        return `${projectFilePath}:${type}:${extra ?? ''}`;
+    }
+
+    setNodeCollapsed(key: string, collapsed: boolean): void {
+        if (this.defaultCollapsed) {
+            if (collapsed) {
+                this.manualExpandedKeys.delete(key);
+            } else {
+                this.manualExpandedKeys.add(key);
+            }
+        } else {
+            if (collapsed) {
+                this.manualCollapsedKeys.add(key);
+            } else {
+                this.manualCollapsedKeys.delete(key);
+            }
+        }
+    }
+
+    getManualCollapsedSize(): number {
+        return this.manualCollapsedKeys.size + this.manualExpandedKeys.size;
+    }
+
+    collapseAll(): void {
+        this.defaultCollapsed = true;
+        this.manualExpandedKeys.clear();
+        this.manualCollapsedKeys.clear();
+        this._onDidChangeTreeData.fire(undefined);
+    }
+
+    expandAll(): void {
+        this.defaultCollapsed = false;
+        this.manualExpandedKeys.clear();
+        this.manualCollapsedKeys.clear();
+        this._onDidChangeTreeData.fire(undefined);
+    }
+
+    setExpandModeNormal(): void {
+        this.defaultCollapsed = false;
+    }
+
+    private getGroupCollapsibleState(nodeKey?: string, defaultExpanded = true): vscode.TreeItemCollapsibleState {
+        let result: vscode.TreeItemCollapsibleState;
+        if (nodeKey) {
+            if (this.defaultCollapsed) {
+                result = this.manualExpandedKeys.has(nodeKey)
+                    ? vscode.TreeItemCollapsibleState.Expanded
+                    : vscode.TreeItemCollapsibleState.Collapsed;
+            } else {
+                result = this.manualCollapsedKeys.has(nodeKey)
+                    ? vscode.TreeItemCollapsibleState.Collapsed
+                    : (defaultExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed);
+            }
+        } else {
+            result = (this.defaultCollapsed || !defaultExpanded)
+                ? vscode.TreeItemCollapsibleState.Collapsed
+                : vscode.TreeItemCollapsibleState.Expanded;
+        }
+        return result;
+    }
+
+    private getDirCollapsibleState(wasExpanded: boolean, nodeKey?: string): vscode.TreeItemCollapsibleState {
+        if (nodeKey) {
+            if (this.defaultCollapsed) {
+                return this.manualExpandedKeys.has(nodeKey)
+                    ? vscode.TreeItemCollapsibleState.Expanded
+                    : vscode.TreeItemCollapsibleState.Collapsed;
+            } else {
+                return this.manualCollapsedKeys.has(nodeKey)
+                    ? vscode.TreeItemCollapsibleState.Collapsed
+                    : (wasExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed);
+            }
+        }
+        if (this.defaultCollapsed) return vscode.TreeItemCollapsibleState.Collapsed;
+        return wasExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
+    }
+
+    collectDescendantNodeKeys(element: QtTreeItem | undefined): string[] {
+        const keys: string[] = [];
+        const children = this.computeChildren(element);
+        for (const child of children) {
+            if (child.nodeKey) keys.push(child.nodeKey);
+            if (child.collapsibleState !== vscode.TreeItemCollapsibleState.None) {
+                keys.push(...this.collectDescendantNodeKeys(child));
+            }
+        }
+        return keys;
     }
 
     setProjects(projects: QtProjectData[]): void {
@@ -120,21 +215,57 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
         return element;
     }
 
-    refreshItem(item: QtTreeItem): void {
+    refreshItem(item: QtTreeItem | undefined): void {
         this._onDidChangeTreeData.fire(item);
     }
 
+    private childrenCache = new Map<QtTreeItem | undefined, QtTreeItem[]>();
+    private parentMap = new Map<QtTreeItem, QtTreeItem | undefined>();
+
     getChildren(element?: QtTreeItem): vscode.ProviderResult<QtTreeItem[]> {
+        const children = this.computeChildren(element);
+        this.childrenCache.set(element, children);
+        for (const child of children) {
+            this.parentMap.set(child, element);
+        }
+        return children;
+    }
+
+    getChildrenCache(element?: QtTreeItem): QtTreeItem[] {
+        return this.childrenCache.get(element) || [];
+    }
+
+    computeChildrenPublic(element?: QtTreeItem): QtTreeItem[] {
+        return this.computeChildren(element);
+    }
+
+    getParent(element: QtTreeItem): QtTreeItem | undefined {
+        return this.parentMap.get(element);
+    }
+
+    private setItemId(item: QtTreeItem, nodeKey: string): void {
+        const collapsed = item.collapsibleState === vscode.TreeItemCollapsibleState.Collapsed ? 1 : 0;
+        const tracked = this.manualCollapsedKeys.has(nodeKey) ? 'c' : (this.manualExpandedKeys.has(nodeKey) ? 'e' : 'd');
+        item.id = `${nodeKey}:${collapsed}:${tracked}`;
+    }
+
+    private computeChildren(element?: QtTreeItem): QtTreeItem[] {
         if (!element) {
             if (this.projects.length === 0) {
                 return [];
             }
-            return this.projects.map(data => new QtTreeItem(
-                data.name,
-                TreeItemType.PROJECT,
-                data,
-                vscode.TreeItemCollapsibleState.Expanded
-            ));
+            return this.projects.map(data => {
+                const key = this.makeNodeKey(data.projectFilePath, TreeItemType.PROJECT);
+                const item = new QtTreeItem(
+                    data.name,
+                    TreeItemType.PROJECT,
+                    data,
+                    this.getGroupCollapsibleState(key)
+                );
+                item.nodeKey = key;
+                this.setItemId(item, key);
+                return item;
+            });
         }
 
         switch (element.type) {
@@ -154,7 +285,13 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
                 return this.getFileChildren(element.projectData, element.projectData.resources, TreeItemType.RESOURCES_GROUP);
 
             case TreeItemType.OTHER_FILES_GROUP:
-                return this.getFileChildren(element.projectData, element.projectData.translations || [], TreeItemType.OTHER_FILES_GROUP);
+                return this.getFileChildren(element.projectData, [...(element.projectData.translations || []), ...(element.projectData.distfiles || [])], TreeItemType.OTHER_FILES_GROUP);
+
+            case TreeItemType.RESOURCE_FILE:
+                return this.getQrcChildren(element);
+
+            case TreeItemType.QRC_FILES_GROUP:
+                return this.getFileChildren(element.projectData, element.fileList || [], TreeItemType.QRC_FILES_GROUP);
 
             case TreeItemType.DIR_GROUP:
                 return this.getDirGroupChildren(element);
@@ -167,65 +304,109 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
     private getProjectChildren(data: QtProjectData): QtTreeItem[] {
         const children: QtTreeItem[] = [];
 
-        children.push(new QtTreeItem(
-            path.basename(data.projectFilePath),
-            TreeItemType.PRO_FILE,
-            data,
-            vscode.TreeItemCollapsibleState.None
-        ));
+        const subProjects = data.subProjects || [];
+        for (const sub of subProjects) {
+            const key = this.makeNodeKey(data.projectFilePath, TreeItemType.PROJECT, sub.projectFilePath);
+            const item = new QtTreeItem(
+                sub.name,
+                TreeItemType.PROJECT,
+                sub,
+                this.getGroupCollapsibleState(key, false)
+            );
+            item.nodeKey = key;
+            this.setItemId(item, key);
+            children.push(item);
+        }
+
+        if (!data.isSubProject) {
+            children.push(new QtTreeItem(
+                path.basename(data.projectFilePath),
+                TreeItemType.PRO_FILE,
+                data,
+                vscode.TreeItemCollapsibleState.None
+            ));
+        }
 
         if (data.headers.length > 0) {
+            const key = this.makeNodeKey(data.projectFilePath, TreeItemType.HEADERS_GROUP);
             const headersGroup = new QtTreeItem(
-                'Headers',
+                '头文件',
                 TreeItemType.HEADERS_GROUP,
                 data,
-                vscode.TreeItemCollapsibleState.Expanded
+                this.getGroupCollapsibleState(key, false)
             );
+            headersGroup.nodeKey = key;
+            this.setItemId(headersGroup, key);
             children.push(headersGroup);
         }
 
         if (data.sources.length > 0) {
+            const key = this.makeNodeKey(data.projectFilePath, TreeItemType.SOURCES_GROUP);
             const sourcesGroup = new QtTreeItem(
-                'Sources',
+                '源文件',
                 TreeItemType.SOURCES_GROUP,
                 data,
-                vscode.TreeItemCollapsibleState.Expanded
+                this.getGroupCollapsibleState(key, false)
             );
+            sourcesGroup.nodeKey = key;
+            this.setItemId(sourcesGroup, key);
             children.push(sourcesGroup);
         }
 
         if (data.forms.length > 0) {
+            const key = this.makeNodeKey(data.projectFilePath, TreeItemType.FORMS_GROUP);
             const formsGroup = new QtTreeItem(
-                'Forms',
+                '界面文件',
                 TreeItemType.FORMS_GROUP,
                 data,
-                vscode.TreeItemCollapsibleState.Expanded
+                this.getGroupCollapsibleState(key, false)
             );
+            formsGroup.nodeKey = key;
+            this.setItemId(formsGroup, key);
             children.push(formsGroup);
         }
 
         if (data.resources.length > 0) {
+            const key = this.makeNodeKey(data.projectFilePath, TreeItemType.RESOURCES_GROUP);
             const resourcesGroup = new QtTreeItem(
-                'Resources',
+                '资源文件',
                 TreeItemType.RESOURCES_GROUP,
                 data,
-                vscode.TreeItemCollapsibleState.Expanded
+                this.getGroupCollapsibleState(key, false)
             );
+            resourcesGroup.nodeKey = key;
+            this.setItemId(resourcesGroup, key);
             children.push(resourcesGroup);
         }
 
-        const translationFiles = data.translations || [];
-        if (translationFiles.length > 0) {
+        const otherFiles = [...(data.translations || []), ...(data.distfiles || [])];
+        if (otherFiles.length > 0) {
+            const key = this.makeNodeKey(data.projectFilePath, TreeItemType.OTHER_FILES_GROUP);
             const otherFilesGroup = new QtTreeItem(
-                'Other files',
+                '其他文件',
                 TreeItemType.OTHER_FILES_GROUP,
                 data,
-                vscode.TreeItemCollapsibleState.Expanded
+                this.getGroupCollapsibleState(key, false)
             );
+            otherFilesGroup.nodeKey = key;
+            this.setItemId(otherFilesGroup, key);
             children.push(otherFilesGroup);
         }
 
         return children;
+    }
+
+    private getQrcChildren(element: QtTreeItem): QtTreeItem[] {
+        if (!element.filePath) return [];
+        const projectData = element.projectData;
+        const qrcAbsPath = path.resolve(projectData.projectFileDir, element.filePath);
+        const qrcDir = path.dirname(qrcAbsPath);
+        const resources = QrcFileParser.parse(qrcAbsPath);
+        const relFiles = resources.map(r => {
+            const abs = path.resolve(qrcDir, r);
+            return path.relative(projectData.projectFileDir, abs).replace(/\\/g, '/');
+        });
+        return this.getFileChildren(projectData, relFiles, TreeItemType.QRC_FILES_GROUP);
     }
 
     private getFileChildren(
@@ -286,11 +467,12 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
 
         if (dirKeys.length === 1 && !dirMap.has('__root__')) {
             const flatFiles = dirMap.get(dirKeys[0])!;
+            const fileState = this.getFileCollapsibleState(groupType);
             return flatFiles.map(fp => new QtTreeItem(
                 path.basename(fp),
                 fileType,
                 projectData,
-                vscode.TreeItemCollapsibleState.None,
+                fileState,
                 fp
             ));
         }
@@ -299,12 +481,13 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
 
         const rootFiles = dirMap.get('__root__');
         if (rootFiles) {
+            const fileState = this.getFileCollapsibleState(groupType);
             for (const fp of rootFiles) {
                 result.push(new QtTreeItem(
                     path.basename(fp),
                     fileType,
                     projectData,
-                    vscode.TreeItemCollapsibleState.None,
+                    fileState,
                     fp
                 ));
             }
@@ -318,15 +501,19 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
             const effectiveDirPath = compactPath || fullDir;
             const stateKey = `${projectData.projectFilePath}:${groupType}:${effectiveDirPath}`;
             const wasExpanded = this.getDirExpandState(stateKey);
+            const nodeKey = this.makeNodeKey(projectData.projectFilePath, TreeItemType.DIR_GROUP, effectiveDirPath);
             const dirNode = new QtTreeItem(
                 label,
                 TreeItemType.DIR_GROUP,
                 projectData,
-                wasExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed,
+                this.getDirCollapsibleState(wasExpanded, nodeKey),
                 undefined,
                 groupType,
                 effectiveDirPath
             );
+            dirNode.nodeKey = nodeKey;
+            this.setItemId(dirNode, nodeKey);
+            dirNode.fileList = files;
             dirNode.updateExpandIcon(wasExpanded);
             result.push(dirNode);
         }
@@ -396,7 +583,7 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
         if (!dirPath || !parentGroupType) return [];
 
         const fileType = this.getFileTypeForGroup(parentGroupType);
-        const files = this.getFilesForGroup(projectData, parentGroupType);
+        const files = element.fileList ?? this.getFilesForGroup(projectData, parentGroupType);
         const prefix = dirPath + '/';
 
         const directFiles: string[] = [];
@@ -420,12 +607,13 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
 
         const result: QtTreeItem[] = [];
 
+        const fileState = this.getFileCollapsibleState(parentGroupType);
         for (const fp of directFiles) {
             result.push(new QtTreeItem(
                 path.basename(fp),
                 fileType,
                 projectData,
-                vscode.TreeItemCollapsibleState.None,
+                fileState,
                 fp
             ));
         }
@@ -438,11 +626,12 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
                 subDir,
                 TreeItemType.DIR_GROUP,
                 projectData,
-                wasExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed,
+                this.getDirCollapsibleState(wasExpanded),
                 undefined,
                 parentGroupType,
                 subDirPath
             );
+            dirNode.fileList = files;
             dirNode.updateExpandIcon(wasExpanded);
             result.push(dirNode);
         }
@@ -457,6 +646,7 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
             case TreeItemType.FORMS_GROUP: return TreeItemType.FORM_FILE;
             case TreeItemType.RESOURCES_GROUP: return TreeItemType.RESOURCE_FILE;
             case TreeItemType.OTHER_FILES_GROUP: return TreeItemType.OTHER_FILE;
+            case TreeItemType.QRC_FILES_GROUP: return TreeItemType.QRC_RESOURCE;
             default: return TreeItemType.HEADER_FILE;
         }
     }
@@ -467,9 +657,16 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
             case TreeItemType.SOURCES_GROUP: return projectData.sources;
             case TreeItemType.FORMS_GROUP: return projectData.forms;
             case TreeItemType.RESOURCES_GROUP: return projectData.resources;
-            case TreeItemType.OTHER_FILES_GROUP: return projectData.translations || [];
+            case TreeItemType.OTHER_FILES_GROUP: return [...(projectData.translations || []), ...(projectData.distfiles || [])];
+            case TreeItemType.QRC_FILES_GROUP: return [];
             default: return [];
         }
+    }
+
+    private getFileCollapsibleState(groupType: TreeItemType): vscode.TreeItemCollapsibleState {
+        return groupType === TreeItemType.RESOURCES_GROUP
+            ? vscode.TreeItemCollapsibleState.Collapsed
+            : vscode.TreeItemCollapsibleState.None;
     }
 }
 
@@ -480,6 +677,7 @@ export class QtProjectExplorer {
 
     private operationView: vscode.TreeView<vscode.TreeItem>;
     private projectView: vscode.TreeView<QtTreeItem>;
+    private currentExpandedKeys = new Set<string>();
 
     private fileWatchers: vscode.FileSystemWatcher[] = [];
     private refreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -505,7 +703,9 @@ export class QtProjectExplorer {
 
         context.subscriptions.push(
             this.projectView.onDidExpandElement(e => {
+                this.projectProvider.setExpandModeNormal();
                 const item = e.element as QtTreeItem;
+                if (item.nodeKey) this.currentExpandedKeys.add(item.nodeKey);
                 if (item.type === TreeItemType.DIR_GROUP) {
                     const key = `${item.projectData.projectFilePath}:${item.parentGroupType}:${item.dirPath}`;
                     this.projectProvider.setDirExpandState(key, true);
@@ -517,7 +717,9 @@ export class QtProjectExplorer {
 
         context.subscriptions.push(
             this.projectView.onDidCollapseElement(e => {
+                this.projectProvider.setExpandModeNormal();
                 const item = e.element as QtTreeItem;
+                if (item.nodeKey) this.currentExpandedKeys.delete(item.nodeKey);
                 if (item.type === TreeItemType.DIR_GROUP) {
                     const key = `${item.projectData.projectFilePath}:${item.parentGroupType}:${item.dirPath}`;
                     this.projectProvider.setDirExpandState(key, false);
@@ -587,7 +789,7 @@ export class QtProjectExplorer {
             const name = path.basename(untracked[0].fsPath, '.pro');
             await this.loadProject(untracked[0].fsPath, { silent: true });
             QtideConfigManager.save(untracked[0].fsPath, name);
-            vscode.window.showInformationMessage(`Loaded Qt project: ${name}`);
+            vscode.window.showInformationMessage(`已加载 Qt 项目：${name}`);
             return;
         }
 
@@ -596,8 +798,8 @@ export class QtProjectExplorer {
 
     private async promptProjectSelection(uris: vscode.Uri[]): Promise<void> {
         const allItem: vscode.QuickPickItem & { isAll?: boolean; uri?: vscode.Uri } = {
-            label: 'All Projects',
-            description: `Load all ${uris.length} projects`,
+            label: '全部项目',
+            description: `加载全部 ${uris.length} 个项目`,
             isAll: true,
         };
 
@@ -618,12 +820,12 @@ export class QtProjectExplorer {
         const items = [...projItems, allItem];
 
         const selected = await vscode.window.showQuickPick(items, {
-            placeHolder: 'Select a project to load (Enter to confirm, ESC to cancel)',
-            title: 'Qtide - Select Projects',
+            placeHolder: '选择要加载的项目（回车确认，ESC 取消）',
+            title: 'Qtide - 选择项目',
         });
 
         if (!selected) {
-            vscode.window.showInformationMessage('No projects loaded.');
+            vscode.window.showInformationMessage('未加载任何项目。');
             return;
         }
 
@@ -652,12 +854,12 @@ export class QtProjectExplorer {
         const projectName = item.projectData.name;
 
         const confirm = await vscode.window.showWarningMessage(
-            `Remove project "${projectName}" from Qtide?`,
+            `从 Qtide 移除项目 "${projectName}"？`,
             { modal: true },
-            'Remove'
+            '移除'
         );
 
-        if (confirm !== 'Remove') {
+        if (confirm !== '移除') {
             return;
         }
 
@@ -667,18 +869,18 @@ export class QtProjectExplorer {
 
         QtideConfigManager.remove(projectFilePath);
 
-        vscode.window.showInformationMessage(`Project "${projectName}" removed.`);
+        vscode.window.showInformationMessage(`项目 "${projectName}" 已移除。`);
     }
 
     async importProject(): Promise<void> {
         const typePicks: (vscode.QuickPickItem & { projectType: 'qmake' | 'cmake' })[] = [
-            { label: 'qmake (.pro)', description: 'Import a Qt qmake project from a .pro file', projectType: 'qmake' },
-            { label: 'CMake (CMakeLists.txt)', description: 'Import a CMake project', projectType: 'cmake' },
+            { label: 'qmake (.pro)', description: '从 .pro 文件导入 Qt qmake 项目', projectType: 'qmake' },
+            { label: 'CMake (CMakeLists.txt)', description: '导入 CMake 项目', projectType: 'cmake' },
         ];
 
         const selectedType = await vscode.window.showQuickPick(typePicks, {
-            title: 'Qtide - Select Project Type',
-            placeHolder: 'Select the project file type to import...',
+            title: 'Qtide - 选择项目类型',
+            placeHolder: '选择要导入的项目文件类型...',
         });
 
         if (!selectedType) {
@@ -689,11 +891,11 @@ export class QtProjectExplorer {
         let dialogTitle: string;
 
         if (selectedType.projectType === 'qmake') {
-            filters = { 'Qt Project Files': ['pro'] };
-            dialogTitle = 'Select Qt .pro file';
+            filters = { 'Qt 项目文件': ['pro'] };
+            dialogTitle = '选择 Qt .pro 文件';
         } else {
-            filters = { 'CMake Project file (CMakeLists.txt)': ['txt'] };
-            dialogTitle = 'Select CMakeLists.txt';
+            filters = { 'CMake 项目文件 (CMakeLists.txt)': ['txt'] };
+            dialogTitle = '选择 CMakeLists.txt';
         }
 
         const uris = await vscode.window.showOpenDialog({
@@ -714,7 +916,7 @@ export class QtProjectExplorer {
         if (selectedType.projectType === 'cmake') {
             if (fileName !== 'CMakeLists.txt' && fileName !== 'CMakeCache.txt') {
                 vscode.window.showWarningMessage(
-                    `Expected CMakeLists.txt, got "${fileName}". Loading anyway.`
+                    `期望 CMakeLists.txt，得到 "${fileName}"。仍尝试加载。`
                 );
             }
             await this.loadProject(uris[0].fsPath);
@@ -731,9 +933,9 @@ export class QtProjectExplorer {
             canSelectFolders: false,
             canSelectMany: false,
             filters: {
-                'VS Code Workspace': ['code-workspace']
+                'VS Code 工作区': ['code-workspace']
             },
-            title: 'Open Qt Workspace (.code-workspace)'
+            title: '打开 Qt 工作区 (.code-workspace)'
         });
 
         if (!uris || uris.length === 0) {
@@ -744,7 +946,7 @@ export class QtProjectExplorer {
 
         if (vscode.workspace.workspaceFile &&
             vscode.workspace.workspaceFile.fsPath === targetPath) {
-            vscode.window.showInformationMessage('This workspace is already open.');
+            vscode.window.showInformationMessage('该工作区已打开。');
             return;
         }
 
@@ -756,7 +958,7 @@ export class QtProjectExplorer {
     }
 
     async newProject(): Promise<void> {
-        vscode.window.showInformationMessage('New Project: Feature under development.');
+        vscode.window.showInformationMessage('新建项目：功能开发中。');
     }
 
     async openSettings(): Promise<void> {
@@ -767,7 +969,7 @@ export class QtProjectExplorer {
 
         const panel = vscode.window.createWebviewPanel(
             'qtide.settings',
-            'Qtide Settings',
+            'Qtide 设置',
             vscode.ViewColumn.Active,
             { enableScripts: true, retainContextWhenHidden: true }
         );
@@ -790,30 +992,30 @@ export class QtProjectExplorer {
             config: {
                 groups: [
                     {
-                        label: 'General',
+                        label: '通用',
                         id: 'general',
                         fields: [
-                            { key: 'projectName', label: 'Project Name', type: 'text', value: '', description: 'Default project name for new projects' },
-                            { key: 'buildDir', label: 'Build Directory', type: 'text', value: 'build', description: 'Default build output directory' },
-                            { key: 'qtVersion', label: 'Qt Version', type: 'dropdown', value: '6.5', options: [{ label: 'Qt 5.15', value: '5.15' }, { label: 'Qt 6.2', value: '6.2' }, { label: 'Qt 6.5', value: '6.5' }, { label: 'Qt 6.6', value: '6.6' }] }
+                            { key: 'projectName', label: '项目名称', type: 'text', value: '', description: '新项目的默认名称' },
+                            { key: 'buildDir', label: '构建目录', type: 'text', value: 'build', description: '默认构建输出目录' },
+                            { key: 'qtVersion', label: 'Qt 版本', type: 'dropdown', value: '6.5', options: [{ label: 'Qt 5.15', value: '5.15' }, { label: 'Qt 6.2', value: '6.2' }, { label: 'Qt 6.5', value: '6.5' }, { label: 'Qt 6.6', value: '6.6' }] }
                         ]
                     },
                     {
-                        label: 'Editor',
+                        label: '编辑器',
                         id: 'editor',
                         fields: [
-                            { key: 'autoComplete', label: 'Auto-complete', type: 'checkbox', value: true, description: 'Enable code auto-completion' },
-                            { key: 'formatOnSave', label: 'Format on Save', type: 'checkbox', value: false, description: 'Auto-format files when saving' },
-                            { key: 'tabSize', label: 'Tab Size', type: 'dropdown', value: '4', options: [{ label: '2 spaces', value: '2' }, { label: '4 spaces', value: '4' }, { label: '8 spaces', value: '8' }] }
+                            { key: 'autoComplete', label: '自动补全', type: 'checkbox', value: true, description: '启用代码自动补全' },
+                            { key: 'formatOnSave', label: '保存时格式化', type: 'checkbox', value: false, description: '保存时自动格式化文件' },
+                            { key: 'tabSize', label: '缩进大小', type: 'dropdown', value: '4', options: [{ label: '2 空格', value: '2' }, { label: '4 空格', value: '4' }, { label: '8 空格', value: '8' }] }
                         ]
                     },
                     {
-                        label: 'Build',
+                        label: '构建',
                         id: 'build',
                         fields: [
-                            { key: 'buildJobs', label: 'Parallel Jobs', type: 'dropdown', value: '4', options: [{ label: '1 job', value: '1' }, { label: '2 jobs', value: '2' }, { label: '4 jobs', value: '4' }, { label: '8 jobs', value: '8' }] },
-                            { key: 'makeFlags', label: 'Make Flags', type: 'textarea', value: '', description: 'Additional flags for make' },
-                            { key: 'cleanBeforeBuild', label: 'Clean before build', type: 'checkbox', value: false, description: 'Run clean target before building' }
+                            { key: 'buildJobs', label: '并行任务数', type: 'dropdown', value: '4', options: [{ label: '1 个任务', value: '1' }, { label: '2 个任务', value: '2' }, { label: '4 个任务', value: '4' }, { label: '8 个任务', value: '8' }] },
+                            { key: 'makeFlags', label: 'Make 标志', type: 'textarea', value: '', description: 'make 的附加标志' },
+                            { key: 'cleanBeforeBuild', label: '构建前清理', type: 'checkbox', value: false, description: '构建前运行 clean 目标' }
                         ]
                     }
                 ]
@@ -861,7 +1063,7 @@ export class QtProjectExplorer {
 
         if (!data) {
             if (!options?.silent) {
-                vscode.window.showErrorMessage(`Failed to parse project file: ${path.basename(filePath)}`);
+                vscode.window.showErrorMessage(`解析项目文件失败：${path.basename(filePath)}`);
             }
             return;
         }
@@ -882,22 +1084,22 @@ export class QtProjectExplorer {
     private async promptSaveWorkspace(data: QtProjectData): Promise<void> {
         const projectTypeLabel = data.projectType === 'cmake' ? 'CMake' : 'qmake';
         const selection = await vscode.window.showInformationMessage(
-            `[${projectTypeLabel}] Project "${data.name}" imported. Continue to auto-save workspace, Cancel to choose custom path.`,
-            'Continue', 'Cancel'
+            `[${projectTypeLabel}] 项目 "${data.name}" 已导入。继续以自动保存工作区，取消以选择自定义路径。`,
+            '继续', '取消'
         );
 
         let targetPath: string | undefined;
 
-        if (selection === 'Continue') {
+        if (selection === '继续') {
             targetPath = path.join(data.projectFileDir, `${data.name}.code-workspace`);
-        } else if (selection === 'Cancel') {
+        } else if (selection === '取消') {
             const defaultUri = vscode.Uri.file(
                 path.join(data.projectFileDir, `${data.name}.code-workspace`)
             );
             const uri = await vscode.window.showSaveDialog({
                 defaultUri,
-                filters: { 'VS Code Workspace': ['code-workspace'] },
-                title: 'Save Workspace File As'
+                filters: { 'VS Code 工作区': ['code-workspace'] },
+                title: '工作区文件另存为'
             });
             if (uri) {
                 targetPath = uri.fsPath;
@@ -913,10 +1115,10 @@ export class QtProjectExplorer {
                 fs.writeFileSync(targetPath, JSON.stringify(workspaceContent, null, 4));
 
                 const openSelection = await vscode.window.showInformationMessage(
-                    `Workspace file saved: ${path.basename(targetPath)}. Open it in VS Code?`,
-                    'Yes', 'Later'
+                    `工作区文件已保存：${path.basename(targetPath)}。在 VS Code 中打开？`,
+                    '是', '稍后'
                 );
-                if (openSelection === 'Yes') {
+                if (openSelection === '是') {
                     await vscode.commands.executeCommand(
                         'vscode.openFolder',
                         vscode.Uri.file(targetPath),
@@ -925,7 +1127,7 @@ export class QtProjectExplorer {
                 }
             } catch (error) {
                 vscode.window.showErrorMessage(
-                    `Failed to save workspace file: ${error}`
+                    `保存工作区文件失败：${error}`
                 );
             }
         }
@@ -934,7 +1136,7 @@ export class QtProjectExplorer {
     async refreshAllProjects(): Promise<void> {
         const projects = this.projectProvider.getProjects();
         if (projects.length === 0) {
-            vscode.window.showWarningMessage('No project is currently opened.');
+            vscode.window.showWarningMessage('当前未打开任何项目。');
             return;
         }
 
@@ -944,9 +1146,89 @@ export class QtProjectExplorer {
 
         vscode.window.showInformationMessage(
             projects.length === 1
-                ? 'Project refreshed.'
-                : `${projects.length} projects refreshed.`
+                ? '项目已刷新。'
+                : `已刷新 ${projects.length} 个项目。`
         );
+    }
+
+    async collapseAll(item?: QtTreeItem): Promise<void> {
+        if (!item) {
+            this.projectProvider.collapseAll();
+            return;
+        }
+        const keys = this.projectProvider.collectDescendantNodeKeys(item);
+        for (const key of keys) {
+            this.projectProvider.setNodeCollapsed(key, true);
+        }
+        this.projectProvider.refreshItem(undefined);
+    }
+
+    async expandAll(item?: QtTreeItem): Promise<void> {
+        if (!item) {
+            this.projectProvider.expandAll();
+            await new Promise(r => setTimeout(r, 50));
+            await this.expandRecursively(undefined);
+            return;
+        }
+        if (item.nodeKey) this.projectProvider.setNodeCollapsed(item.nodeKey, false);
+        const keys = this.projectProvider.collectDescendantNodeKeys(item);
+        for (const key of keys) {
+            this.projectProvider.setNodeCollapsed(key, false);
+        }
+        if (item.collapsibleState !== vscode.TreeItemCollapsibleState.None) {
+            try {
+                await this.projectView.reveal(item, { expand: true, select: true, focus: false });
+            } catch {
+            }
+        }
+        await this.expandRecursively(item);
+    }
+
+    async toggleNode(item?: QtTreeItem): Promise<void> {
+        if (!item) {
+            return;
+        }
+        if (item.collapsibleState === vscode.TreeItemCollapsibleState.None) {
+            return;
+        }
+        const isCurrentlyExpanded = item.nodeKey ? this.currentExpandedKeys.has(item.nodeKey) : false;
+        const shouldExpand = !isCurrentlyExpanded;
+        if (shouldExpand) {
+            if (item.nodeKey) this.projectProvider.setNodeCollapsed(item.nodeKey, false);
+            try {
+                await this.projectView.reveal(item, { expand: true, select: true, focus: false });
+            } catch {
+            }
+        } else {
+            if (item.nodeKey) this.projectProvider.setNodeCollapsed(item.nodeKey, true);
+            this.projectProvider.refreshItem(undefined);
+        }
+    }
+
+    private async collapseRecursively(element: QtTreeItem | undefined): Promise<void> {
+        const children = this.projectProvider.getChildrenCache(element);
+        for (const child of children) {
+            await this.collapseRecursively(child);
+            if (child.collapsibleState !== vscode.TreeItemCollapsibleState.None) {
+                try {
+                    await this.projectView.reveal(child, { expand: false, select: false, focus: false });
+                } catch {
+                }
+            }
+        }
+    }
+
+    private async expandRecursively(element: QtTreeItem | undefined): Promise<void> {
+        const children = this.projectProvider.getChildrenCache(element);
+        for (const child of children) {
+            if (child.collapsibleState !== vscode.TreeItemCollapsibleState.None) {
+                try {
+                    await this.projectView.reveal(child, { expand: true, select: false, focus: false });
+                } catch {
+                }
+                await this.expandRecursively(child);
+            }
+        }
     }
 
     async openTreeFile(item?: QtTreeItem): Promise<void> {
@@ -978,7 +1260,7 @@ export class QtProjectExplorer {
             return;
         }
         await vscode.env.clipboard.writeText(absPath);
-        vscode.window.showInformationMessage('Path copied to clipboard.');
+        vscode.window.showInformationMessage('路径已复制到剪贴板。');
     }
 
     getCurrentProject(): QtProjectData | null {
@@ -1017,7 +1299,7 @@ export class QtProjectExplorer {
         this.clearRefreshTimer(filePath);
         this.setupWatchers();
         QtideConfigManager.remove(filePath);
-        vscode.window.showWarningMessage(`Removed project: ${path.basename(filePath)}`);
+        vscode.window.showWarningMessage(`已移除项目：${path.basename(filePath)}`);
     }
 
     private onProjectDirChanged(filePath: string, uri: vscode.Uri): void {

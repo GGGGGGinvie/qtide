@@ -10,29 +10,42 @@ export class ProFileParser {
         try {
             content = fs.readFileSync(proFilePath, 'utf-8');
         } catch (err) {
-            console.error(`Failed to read .pro file: ${proFilePath}`, err);
+            console.error(`Failed to read project file: ${proFilePath}`, err);
             return null;
         }
 
-        const proFileDir = path.dirname(proFilePath);
-        const proFileName = path.basename(proFilePath);
+        const fileDir = path.dirname(proFilePath);
+        const fileName = path.basename(proFilePath);
 
         const lines = ProFileParser.preprocess(content);
-        const vars = ProFileParser.parseVariables(lines, proFileDir);
+        const vars = ProFileParser.parseVariables(lines, fileDir);
 
         const targetArr = vars['TARGET'];
-        const target = (targetArr && targetArr.length > 0) ? targetArr[0] : path.basename(proFileName, '.pro');
+        const ext = path.extname(fileName);
+        const target = (targetArr && targetArr.length > 0) ? targetArr[0] : path.basename(fileName, ext);
+
+        const subProjects: QtProjectData[] = [];
+        const includePaths = ProFileParser.collectIncludes(lines, vars, fileDir);
+        for (const priPath of includePaths) {
+            const sub = ProFileParser.parse(priPath);
+            if (sub) {
+                sub.isSubProject = true;
+                subProjects.push(sub);
+            }
+        }
 
         return {
             name: target,
             projectType: ProjectType.QMAKE,
             projectFilePath: proFilePath,
-            projectFileDir: proFileDir,
+            projectFileDir: fileDir,
             headers: vars['HEADERS'] || [],
             sources: vars['SOURCES'] || [],
             forms: vars['FORMS'] || [],
             resources: vars['RESOURCES'] || [],
             translations: vars['TRANSLATIONS'] || [],
+            distfiles: vars['DISTFILES'] || [],
+            subProjects: subProjects.length > 0 ? subProjects : undefined,
         };
     }
 
@@ -78,7 +91,6 @@ export class ProFileParser {
 
     private static parseVariables(lines: string[], proFileDir: string): Record<string, string[]> {
         const rawVars: Record<string, string[]> = {};
-
         const assignRegex = /^(\w+)\s*(\+?=)\s*(.*)$/;
 
         for (const line of lines) {
@@ -101,20 +113,32 @@ export class ProFileParser {
         }
 
         const resolved = ProFileParser.resolveReferences(rawVars, proFileDir);
-
-        const fileKeys = ['HEADERS', 'SOURCES', 'FORMS', 'RESOURCES', 'TRANSLATIONS'];
         const result: Record<string, string[]> = {};
-        for (const key of fileKeys) {
-            result[key] = [];
-            const raw = resolved[key] || [];
-            for (const val of raw) {
-                const resolvedVal = ProFileParser.resolveVarRef(val, resolved, proFileDir);
-                result[key].push(resolvedVal);
+        for (const key of Object.keys(resolved)) {
+            result[key] = resolved[key].map(v => ProFileParser.resolveVarRef(v, resolved, proFileDir));
+        }
+        return result;
+    }
+
+    private static collectIncludes(
+        lines: string[],
+        vars: Record<string, string[]>,
+        baseDir: string
+    ): string[] {
+        const includeRegex = /^include\s*\(\s*(.+?)\s*\)$/i;
+        const result: string[] = [];
+        const seen = new Set<string>();
+        for (const line of lines) {
+            const match = line.match(includeRegex);
+            if (!match) continue;
+            let includePath = match[1].trim();
+            includePath = ProFileParser.resolveVarRef(includePath, vars, baseDir);
+            const absPath = path.resolve(baseDir, includePath);
+            if (!seen.has(absPath)) {
+                seen.add(absPath);
+                result.push(absPath);
             }
         }
-
-        result['TARGET'] = resolved['TARGET'] || [];
-
         return result;
     }
 
