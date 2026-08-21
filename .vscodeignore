@@ -15,5 +15,6 @@ webview/**/*.ts
 webview/**/*.vue
 .codeartsdoer/**
 pnpm-lock.yaml
-qtide.code-workspace
+pack.js
+vsce-output.log
 

@@ -3,7 +3,7 @@
     "displayName": "Qt IDE",
     "description": "Qt 项目辅助插件，支持 qmake (.pro) 和 CMake (CMakeLists.txt) 项目解析与文件树浏览",
     "version": "0.0.7",
-    "publisher": "Ginvie",    
+    "publisher": "Ginvie",
     "icon": "res/icon/qtide.png",
     "engines": {
         "vscode": "^1.116.0"
@@ -165,14 +165,15 @@
         "test": "vscode-test"
     },
     "devDependencies": {
-        "@types/vscode": "^1.116.0",
         "@types/mocha": "^10.0.10",
         "@types/node": "22.x",
-        "typescript-eslint": "^8.56.1",
+        "@types/vscode": "^1.116.0",
+        "@vscode/test-cli": "^0.0.12",
+        "@vscode/test-electron": "^2.5.2",
+        "@vscode/vsce": "^3.9.2",
         "eslint": "^9.39.3",
         "typescript": "^5.9.3",
-        "@vscode/test-cli": "^0.0.12",
-        "@vscode/test-electron": "^2.5.2"
+        "typescript-eslint": "^8.56.1"
     },
     "volta": {
         "node": "24.15.0"

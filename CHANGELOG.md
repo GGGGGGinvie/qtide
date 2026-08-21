@@ -1,9 +1,7 @@
-# Change Log
+# 更新日志
 
-All notable changes to the "qtide" extension will be documented in this file.
+所有关于 "qtide" 扩展的重要变更都将记录在此文件中。
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+## [未发布]
 
-## [Unreleased]
-
-- Initial release
+- 初始版本
