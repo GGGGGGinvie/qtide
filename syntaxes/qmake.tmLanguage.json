@@ -1,0 +1,118 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/vscode-tmlanguage/master/tmlanguage.json",
+    "scopeName": "source.qmake",
+    "patterns": [
+        { "include": "#comment" },
+        { "include": "#continuation" },
+        { "include": "#assignment" },
+        { "include": "#scope-block" },
+        { "include": "#control-keyword" },
+        { "include": "#builtin-function" },
+        { "include": "#variable-reference" },
+        { "include": "#string" },
+        { "include": "#brace" },
+        { "include": "#operator" }
+    ],
+    "repository": {
+        "comment": {
+            "name": "comment.line.number-sign.qmake",
+            "match": "(#).*$",
+            "captures": {
+                "1": { "name": "punctuation.definition.comment.qmake" }
+            }
+        },
+        "continuation": {
+            "match": "(\\\\)\\s*$",
+            "captures": {
+                "1": { "name": "punctuation.separator.continuation.qmake" }
+            }
+        },
+        "assignment": {
+            "patterns": [
+                {
+                    "match": "^\\s*(QT|TARGET|TEMPLATE|SOURCES|HEADERS|FORMS|RESOURCES|TRANSLATIONS|DISTFILES|CONFIG|DEFINES|INCLUDEPATH|DEPENDPATH|LIBS|DESTDIR|OBJECTS_DIR|MOC_DIR|UI_DIR|RCC_DIR|VERSION|ICON|SUBDIRS|INSTALLS|DLLDESTDIR|QMAKE_CFLAGS|QMAKE_CXXFLAGS|QMAKE_LFLAGS|QMAKE_LIBS|QMAKE_POST_LINK|QMAKE_PRE_LINK|QMAKE_CFLAGS_RELEASE|QMAKE_CXXFLAGS_RELEASE|QMAKE_CFLAGS_DEBUG|QMAKE_CXXFLAGS_DEBUG|QMAKE_CFLAGS_WARN_ON|QMAKE_CXXFLAGS_WARN_ON|QMAKE_INCDIR|QMAKE_LIBDIR|QMAKE_RPATH|QMAKE_LFLAGS_RPATH|QMAKE_FRAMEWORKPATH|QMAKE_OSX_DEPLOYMENT_TARGET|QMAKE_MACOSX_DEPLOYMENT_TARGET|QMAKE_IOS_DEPLOYMENT_TARGET|QMAKE_PBX_OUTPUT_TYPE|QMAKE_TARGET_COMPANY|QMAKE_TARGET_DESCRIPTION|QMAKE_TARGET_COPYRIGHT|QMAKE_TARGET_PRODUCT|RC_ICONS|RC_CODEPAGE|RC_LANG|RC_DEFINES|DEF_FILE|RC_FILE|RES_FILE|QMAKE_BUNDLE|QMAKE_INFO_PLIST|QMAKE_PROVISIONING_PROFILE|QMAKE_DEVELOPMENT_TEAM|QMAKE_CODE_SIGN_IDENTITY|QMAKE_CODE_SIGN_STYLE|QMAKE_ENTITLEMENTS)(\\s*)(\\+=|-=|\\*=|~=|:=|=)",
+                    "captures": {
+                        "1": { "name": "support.variable.builtin.qmake" },
+                        "3": { "name": "keyword.operator.assignment.qmake" }
+                    }
+                },
+                {
+                    "match": "^\\s*([A-Za-z0-9_.]+)(\\s*)(\\+=|-=|\\*=|~=|:=|=)",
+                    "captures": {
+                        "1": { "name": "variable.other.readwrite.qmake" },
+                        "3": { "name": "keyword.operator.assignment.qmake" }
+                    }
+                }
+            ]
+        },
+        "scope-block": {
+            "match": "(!)?(win32|win64|unix|macx|macos|linux|android|ios|tvos|watchos|wasm|gcc|msvc|clang|mingw|icc|debug|release|static|shared|dll|plugin|gui|widgets|console|opengl|network|sql|svg|xml|testlib|concurrent|printsupport|quick|qml|positioning|location|sensors|nfc|bluetooth|multimedia|dbus|embedded|simulator|winrt|uikit|qnx|haiku|freebsd|openbsd|netbsd|solaris|aix|hpux|cygwin)(?=\\s*[{:|&])",
+            "captures": {
+                "1": { "name": "keyword.operator.logical.not.qmake" },
+                "2": { "name": "support.constant.platform.qmake" }
+            }
+        },
+        "control-keyword": {
+            "match": "\\b(if|else|for|defineTest|defineReplace|return|load|requires|option|cache|unset|eval|break|next)\\b",
+            "name": "keyword.control.qmake"
+        },
+        "builtin-function": {
+            "match": "\\b(isEqual|contains|exists|error|message|warning|log|system|quote|first|last|member|count|size|str|sprintf|replace|files|prompt|infile|getenv|dirname|basename|absolute_path|relative_path|clean_path|system_path|shell_path|shell_quote|split|join|lower|upper|section|find|defined|CONFIG|QT)\\b(?=\\s*\\()",
+            "name": "support.function.builtin.qmake"
+        },
+        "variable-reference": {
+            "patterns": [
+                {
+                    "match": "\\$\\$\\{([A-Za-z0-9_.]+)\\}",
+                    "name": "variable.other.readwrite.qmake"
+                },
+                {
+                    "match": "\\$\\$\\[([A-Za-z0-9_.]+)\\]",
+                    "name": "support.constant.builtin.qmake"
+                },
+                {
+                    "match": "\\$\\$\\(([A-Za-z0-9_.]+)\\)",
+                    "name": "variable.other.environment.qmake"
+                },
+                {
+                    "match": "\\$\\$([A-Za-z0-9_.]+)",
+                    "name": "variable.other.readwrite.qmake"
+                }
+            ]
+        },
+        "string": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.qmake",
+                    "begin": "\"",
+                    "end": "\"",
+                    "patterns": [
+                        { "include": "#variable-reference" },
+                        { "match": "\\\\.", "name": "constant.character.escape.qmake" }
+                    ]
+                },
+                {
+                    "name": "string.quoted.single.qmake",
+                    "begin": "'",
+                    "end": "'",
+                    "patterns": [
+                        { "include": "#variable-reference" },
+                        { "match": "\\\\.", "name": "constant.character.escape.qmake" }
+                    ]
+                }
+            ]
+        },
+        "brace": {
+            "patterns": [
+                { "match": "\\{", "name": "punctuation.section.block.begin.qmake" },
+                { "match": "\\}", "name": "punctuation.section.block.end.qmake" },
+                { "match": "\\(", "name": "punctuation.section.parens.begin.qmake" },
+                { "match": "\\)", "name": "punctuation.section.parens.end.qmake" }
+            ]
+        },
+        "operator": {
+            "match": "(:|\\|\\||&&)",
+            "name": "keyword.operator.logical.qmake"
+        }
+    }
+}

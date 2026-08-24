@@ -34,6 +34,18 @@ Qtide 是一个 VS Code 扩展，用于解析和浏览 Qt 项目文件，提供�
 - **全部展开 / 全部折叠** — 全局或基于节点的展开折叠操作
 - **展开/折叠切换** — 切换指定节点的状态
 
+#### .pro/.pri 语法高亮
+为 qmake 项目文件（`.pro`、`.pri`）提供 TextMate 语法高亮，覆盖以下要素：
+- **注释** — `#` 行注释
+- **变量赋值** — `=`、`+=`、`-=`、`*=`、`~=`、`:=` 运算符，内置变量（`QT`、`TARGET`、`SOURCES`、`HEADERS`、`CONFIG` 等）特殊高亮
+- **条件块** — 平台/配置标识符（`win32`、`unix`、`macx`、`debug`、`release` 等）及 `!` 取反
+- **控制流** — `if`、`else`、`for`、`defineTest`、`defineReplace`、`return` 等
+- **内置函数** — `message()`、`contains()`、`isEqual()`、`exists()`、`include()` 等
+- **变量引用** — `$$VAR`、`$${VAR}`、`$$[QT_INSTALL_PREFIX]`、`$$(PATH)`（环境变量）
+- **字符串** — 单引号/双引号字符串，支持内部变量引用插值
+- **续行符** — 行末 `\` 高亮
+- **括号匹配/自动闭合**、注释切换
+
 #### qmake 项目解析
 支持以下 `.pro` 变量：
 - `TARGET`（项目名）、`HEADERS`、`SOURCES`、`FORMS`、`RESOURCES`、`TRANSLATIONS`、`DISTFILES`
