@@ -9,6 +9,8 @@
         { "include": "#control-keyword" },
         { "include": "#builtin-function" },
         { "include": "#variable-reference" },
+        { "include": "#filename" },
+        { "include": "#escape" },
         { "include": "#string" },
         { "include": "#brace" },
         { "include": "#operator" }
@@ -57,7 +59,7 @@
             "name": "keyword.control.qmake"
         },
         "builtin-function": {
-            "match": "\\b(isEqual|contains|exists|error|message|warning|log|system|quote|first|last|member|count|size|str|sprintf|replace|files|prompt|infile|getenv|dirname|basename|absolute_path|relative_path|clean_path|system_path|shell_path|shell_quote|split|join|lower|upper|section|find|defined|CONFIG|QT)\\b(?=\\s*\\()",
+            "match": "\\b(absolute_path|addDepend|addDepends|addFile|addFiles|basename|clean_path|clear|CONFIG|contains|count|defined|dirname|error|exists|export|files|find|first|getenv|greaterThan|include|infile|isEmpty|isEqual|join|last|lessThan|lines|log|lower|member|message|mkpath|parseJSON|prompt|quote|read_file|relative_path|removeFile|removeFiles|replace|replaceFile|section|shell_path|shell_quote|size|split|sprintf|str|system|system_path|touch|upper|warning|write_file|QT)\\b(?=\\s*\\()",
             "name": "support.function.builtin.qmake"
         },
         "variable-reference": {
@@ -79,6 +81,42 @@
                     "name": "variable.other.readwrite.qmake"
                 }
             ]
+        },
+        "filename": {
+            "patterns": [
+                {
+                    "match": "\\b[-A-Za-z0-9_./+]+\\.(cpp|cc|cxx|c|inl)\\b",
+                    "name": "entity.name.function.source.qmake"
+                },
+                {
+                    "match": "\\b[-A-Za-z0-9_./+]+\\.(h|hpp|hxx|hh)\\b",
+                    "name": "entity.name.type.header.qmake"
+                },
+                {
+                    "match": "\\b[-A-Za-z0-9_./+]+\\.ui\\b",
+                    "name": "entity.name.tag.ui.qmake"
+                },
+                {
+                    "match": "\\b[-A-Za-z0-9_./+]+\\.qrc\\b",
+                    "name": "support.constant.resource.qmake"
+                },
+                {
+                    "match": "\\b[-A-Za-z0-9_./+]+\\.(ts|qm)\\b",
+                    "name": "variable.other.property.translation.qmake"
+                },
+                {
+                    "match": "\\b[-A-Za-z0-9_./+]+\\.(pri|pro)\\b",
+                    "name": "keyword.other.project.qmake"
+                },
+                {
+                    "match": "\\b[-A-Za-z0-9_./+]+\\.(png|jpg|jpeg|ico|svg|bmp|gif)\\b",
+                    "name": "string.unquoted.image.qmake"
+                }
+            ]
+        },
+        "escape": {
+            "match": "\\\\(\\\\)*\\\"",
+            "name": "constant.character.escape.qmake"
         },
         "string": {
             "patterns": [

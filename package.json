@@ -2,7 +2,7 @@
     "name": "qtide",
     "displayName": "Qt IDE",
     "description": "Qt 项目辅助插件，支持 qmake (.pro) 和 CMake (CMakeLists.txt) 项目解析与文件树浏览",
-    "version": "0.0.8",
+    "version": "0.0.9",
     "publisher": "Ginvie",
     "icon": "res/icon/qtide.png",
     "engines": {

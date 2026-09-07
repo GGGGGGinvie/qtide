@@ -17,4 +17,10 @@ webview/**/*.vue
 pnpm-lock.yaml
 pack.js
 vsce-output.log
+.codegraph/**
+.resource/**
+doc/**
+webview/**
+qtide.code-workspace
+README_EN.md
 

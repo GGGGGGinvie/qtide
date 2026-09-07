@@ -223,7 +223,7 @@ export class QtTreeItem extends vscode.TreeItem {
 
     private setFileCommand(): void {
         if (this.filePath) {
-            const fullPath = path.join(this.projectData.projectFileDir, this.filePath);
+            const fullPath = path.resolve(this.projectData.projectFileDir, this.filePath);
             this.command = {
                 command: 'vscode.open',
                 title: 'Open File',
@@ -249,7 +249,7 @@ export class QtTreeItem extends vscode.TreeItem {
 
     /** Full path for file items (relative filePath + project dir); panics if filePath is undefined */
     private getFullPath(): string {
-        return path.join(this.projectData.projectFileDir, this.filePath!);
+        return path.resolve(this.projectData.projectFileDir, this.filePath!);
     }
 
     /** Absolute path for file nodes; undefined for groups and project root */
@@ -258,7 +258,7 @@ export class QtTreeItem extends vscode.TreeItem {
             return this.projectData.projectFilePath;
         }
         if (this.filePath) {
-            return path.join(this.projectData.projectFileDir, this.filePath);
+            return path.resolve(this.projectData.projectFileDir, this.filePath);
         }
         return undefined;
     }

@@ -417,7 +417,20 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
         const fileType = this.getFileTypeForGroup(groupType);
         const projectFileDir = projectData.projectFileDir;
 
-        const fileDirs = files.map(f => {
+        const ext = this.getFileExtensionForGroup(groupType);
+
+        const filteredFiles = groupType === TreeItemType.QRC_FILES_GROUP
+            ? files
+            : files.filter(f => {
+                const extName = path.extname(f).toLowerCase();
+                return ext.includes(extName);
+            });
+
+        if (filteredFiles.length === 0) {
+            return [];
+        }
+
+        const fileDirs = filteredFiles.map(f => {
             const absDir = path.resolve(projectFileDir, path.dirname(f));
             return path.relative(projectFileDir, absDir).replace(/\\/g, '/');
         });
@@ -431,8 +444,8 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
         const dirMap = new Map<string, string[]>();
         const basePrefixMap = new Map<string, string | undefined>();
 
-        for (let i = 0; i < files.length; i++) {
-            const filePath = files[i];
+        for (let i = 0; i < filteredFiles.length; i++) {
+            const filePath = filteredFiles[i];
             const relDir = fileDirs[i];
             let dirKey: string;
             let basePrefix: string | undefined;
@@ -496,12 +509,12 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
         for (const dirKey of dirKeys) {
             const bp = basePrefixMap.get(dirKey);
             const fullDir = bp ? bp + '/' + dirKey : dirKey;
-            const compactPath = this.getCompactDirPath(files, projectData, fullDir);
+            const compactPath = this.getCompactDirPath(filteredFiles, projectData, fullDir);
             const label = compactPath ? dirKey + '/' + path.basename(compactPath) : dirKey;
             const effectiveDirPath = compactPath || fullDir;
             const stateKey = `${projectData.projectFilePath}:${groupType}:${effectiveDirPath}`;
             const wasExpanded = this.getDirExpandState(stateKey);
-            const nodeKey = this.makeNodeKey(projectData.projectFilePath, TreeItemType.DIR_GROUP, effectiveDirPath);
+            const nodeKey = this.makeNodeKey(projectData.projectFilePath, groupType, effectiveDirPath);
             const dirNode = new QtTreeItem(
                 label,
                 TreeItemType.DIR_GROUP,
@@ -513,7 +526,9 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
             );
             dirNode.nodeKey = nodeKey;
             this.setItemId(dirNode, nodeKey);
-            dirNode.fileList = files;
+            if (groupType === TreeItemType.QRC_FILES_GROUP) {
+                dirNode.fileList = filteredFiles;
+            }
             dirNode.updateExpandIcon(wasExpanded);
             result.push(dirNode);
         }
@@ -583,13 +598,24 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
         if (!dirPath || !parentGroupType) return [];
 
         const fileType = this.getFileTypeForGroup(parentGroupType);
-        const files = element.fileList ?? this.getFilesForGroup(projectData, parentGroupType);
+        const isQrc = parentGroupType === TreeItemType.QRC_FILES_GROUP;
+        const allFiles = isQrc
+            ? (element.fileList ?? [])
+            : this.getFilesForGroup(projectData, parentGroupType);
+        const ext = this.getFileExtensionForGroup(parentGroupType);
+        const filteredFiles = isQrc
+            ? allFiles
+            : allFiles.filter(f => {
+                const extName = path.extname(f).toLowerCase();
+                return ext.includes(extName);
+            });
+
         const prefix = dirPath + '/';
 
         const directFiles: string[] = [];
         const subDirMap = new Map<string, string[]>();
 
-        for (const filePath of files) {
+        for (const filePath of filteredFiles) {
             const absDir = path.resolve(projectData.projectFileDir, path.dirname(filePath));
             const relDir = path.relative(projectData.projectFileDir, absDir).replace(/\\/g, '/');
 
@@ -622,16 +648,21 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
             const subDirPath = dirPath + '/' + subDir;
             const stateKey = `${projectData.projectFilePath}:${parentGroupType}:${subDirPath}`;
             const wasExpanded = this.getDirExpandState(stateKey);
+            const nodeKey = this.makeNodeKey(projectData.projectFilePath, parentGroupType, subDirPath);
             const dirNode = new QtTreeItem(
                 subDir,
                 TreeItemType.DIR_GROUP,
                 projectData,
-                this.getDirCollapsibleState(wasExpanded),
+                this.getDirCollapsibleState(wasExpanded, nodeKey),
                 undefined,
                 parentGroupType,
                 subDirPath
             );
-            dirNode.fileList = files;
+            dirNode.nodeKey = nodeKey;
+            this.setItemId(dirNode, nodeKey);
+            if (isQrc) {
+                dirNode.fileList = filteredFiles;
+            }
             dirNode.updateExpandIcon(wasExpanded);
             result.push(dirNode);
         }
@@ -648,6 +679,17 @@ class ProjectDataProvider implements vscode.TreeDataProvider<QtTreeItem> {
             case TreeItemType.OTHER_FILES_GROUP: return TreeItemType.OTHER_FILE;
             case TreeItemType.QRC_FILES_GROUP: return TreeItemType.QRC_RESOURCE;
             default: return TreeItemType.HEADER_FILE;
+        }
+    }
+
+    private getFileExtensionForGroup(groupType: TreeItemType): string[] {
+        switch (groupType) {
+            case TreeItemType.HEADERS_GROUP: return ['.h', '.hpp', '.hxx', '.hh', '.h++'];
+            case TreeItemType.SOURCES_GROUP: return ['.cpp', '.c', '.cc', '.cxx', '.c++'];
+            case TreeItemType.FORMS_GROUP: return ['.ui'];
+            case TreeItemType.RESOURCES_GROUP: return ['.qrc'];
+            case TreeItemType.OTHER_FILES_GROUP: return ['.ts', '.qm'];
+            default: return [];
         }
     }
 
